@@ -1,12 +1,13 @@
 import socket
+from _thread import start_new_thread
+from json import loads, dumps, load
+from time import sleep
+from typing import Any
+
 import pygame
+import winsound
 # noinspection PyUnresolvedReferences,PyProtectedMember
 from pygame._sdl2 import Window
-from typing import Any
-from _thread import start_new_thread
-import winsound
-from time import sleep
-from json import loads, dumps, load
 from pymsgbox import alert
 
 
@@ -28,10 +29,10 @@ class LimboKeysClient:
             assigned_client_id = False
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect(("localhost", 6666))
-                s.sendall(dumps({"quit": False, "clicked": False}).encode('ascii'))
+                s.sendall(dumps({"quit": False, "clicked": False}).encode("ascii"))
                 while True:
                     sleep(0.02)
-                    msg: dict[str, Any] = loads(s.recv(1024).decode('ascii'))
+                    msg: dict[str, Any] = loads(s.recv(1024).decode("ascii"))
                     self.id = msg["id"]
                     self.position = msg["position"]
                     self.alive = msg["alive"]
@@ -47,7 +48,7 @@ class LimboKeysClient:
                                 pygame.mixer.music.set_pos(176)
                         self.id_surface = font.render(str(self.id), True, (0, 0, 0))
                         assigned_client_id = True
-                    s.sendall(dumps({"quit": self.wants_to_quit, "clicked": self.clicked}).encode('ascii'))
+                    s.sendall(dumps({"quit": self.wants_to_quit, "clicked": self.clicked}).encode("ascii"))
         except Exception as e:
             print(e)
 
@@ -59,6 +60,7 @@ borderless = False
 transparent = False
 music = True
 sfx = True
+crash_on_failure = False
 # ==============================
 
 try:
@@ -68,6 +70,7 @@ try:
         transparent = data.get("transparent", False)
         music = data.get("music", True)
         sfx = data.get("sfx", True)
+        crash_on_failure = data.get("crash_on_failure", False)
 except FileNotFoundError:
     pass
 
@@ -94,8 +97,9 @@ if transparent:
 
     # Create layered window
     hwnd = pygame.display.get_wm_info()["window"]
-    win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE,
-                           win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE) | win32con.WS_EX_LAYERED)
+    win32gui.SetWindowLong(
+        hwnd, win32con.GWL_EXSTYLE, win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE) | win32con.WS_EX_LAYERED
+    )
     # Set window transparency color
     win32gui.SetLayeredWindowAttributes(hwnd, win32api.RGB(*(1, 1, 1)), 0, win32con.LWA_COLORKEY)
 
@@ -131,4 +135,8 @@ if client.clicked:
         if sfx:
             start_new_thread(winsound.PlaySound, ("SystemExclamation", winsound.SND_ALIAS))
         alert("Wrong guess")
+        if crash_on_failure:
+            import bsod
+
+            bsod.bsod()
 pygame.quit()
